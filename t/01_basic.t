@@ -188,6 +188,10 @@ my $code = sub {
         http://localhost/000006.fid
     |], 'get_paths ok')
         or diag(Dumper(\@paths3));
+
+    is_deeply($cache->last_set, ['my_namespace_mogile_foo', 'http://localhost/000004.fid http://localhost/000005.fid http://localhost/000006.fid', $cache_expire ], 'cache should be set');
+    is($cache->get_count('my_namespace_mogile_foo'), 4, 'cache should be used');
+
 }
 
 done_testing();
