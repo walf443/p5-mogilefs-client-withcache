@@ -103,6 +103,7 @@ use Test::More;
 use MogileFS::Client;
 use MogileFS::Client::WithCache;
 use Data::Dumper;
+use File::Temp;
 
 my $code = sub {
     my ($self,  %args) = @_;
@@ -191,6 +192,39 @@ my $code = sub {
 
     is_deeply($cache->last_set, ['my_namespace_mogile_foo', 'http://localhost/000004.fid http://localhost/000005.fid http://localhost/000006.fid', $cache_expire ], 'cache should be set');
     is($cache->get_count('my_namespace_mogile_foo'), 4, 'cache should be used');
+
+}
+
+{
+    # get_file_data
+    my $cache = Cache::Stub->new;
+    my $domain = 'app';
+    my $cache_expire = 5 * 60;
+    my $mogilefs = MogileFS::Client::WithCache->new(
+        domain => $domain,
+        hosts   => ['10.0.0.2:7001', '10.0.0.3:7001'],
+        cache   => $cache,
+        namespace => 'my_namespace_mogile',
+        cache_expire => $cache_expire,
+    );
+    
+    my $key = 'foo';
+
+    my ($fh, $filename) = File::Temp::tempfile();
+    print $fh "this is test\n";
+    close $fh;
+    $mogilefs->{backend}->set_expect_for_request('get_paths', {
+        domain => $domain,
+        key    => $key,
+    }, {
+            paths => 2,
+            path1 => $filename,
+            path2 => $filename,
+    });
+
+    my $content = $mogilefs->get_file_data($key);
+    is($$content, "this is test\n", 'get_file_data should be success');
+    is($cache->get_count('my_namespace_mogile_foo'), 1, 'cache should be used');
 
 }
 
