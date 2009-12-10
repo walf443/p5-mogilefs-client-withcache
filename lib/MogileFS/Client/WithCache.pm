@@ -29,7 +29,7 @@ sub store_file {
     my $self = shift;
     my ($key, $class, $file, $opts ) = @_;
     my $result = $self->SUPER::store_file(@_);
-    $self->{cache}->delete($key);
+    $self->_cache_clear($key);
     return $result;
 }
 
@@ -37,14 +37,14 @@ sub store_content {
     my $self = shift;
     my ($key, $class, $file, $opts ) = @_;
     my $result = $self->SUPER::store_content(@_);
-    $self->{cache}->delete($key);
+    $self->_cache_clear($key);
     return $result;
 }
 
 sub get_paths {
     my ($self, $key, $opts) = @_;
 
-    my $cache_key = $self->{namespace} . "_" . $key;
+    my $cache_key = $self->_get_cache_key($key);
     my $result = $self->{cache}->get($cache_key);
 
     unless ( defined $result ) {
@@ -55,6 +55,16 @@ sub get_paths {
     return ( split q{ }, $result );
 }
 
+sub _get_cache_key {
+    my ($self, $key ) = @_;
+    return $self->{namespace} . "_" . $key;
+}
+
+sub _cache_clear {
+    my ($self, $key) = @_;
+    $self->{cache}->delete($self->_get_cache_key($key));
+}
+
 sub get_paths_without_cache {
     my $self = shift;
     return ( $self->SUPER::get_paths(@_) );
@@ -63,14 +73,14 @@ sub get_paths_without_cache {
 sub delete {
     my ($self, $key) = @_;
     my $result = $self->SUPER::delete($key);
-    $self->{cache}->delete($key);
+    $self->_cache_clear($key);
     return $result;
 }
 
 sub rename {
     my ($self, $fkey, $tkey) = @_;
     my $result = $self->SUPER::remane($fkey, $tkey);
-    $self->{cache}->delete($fkey);
+    $self->_cache_clear($fkey);
     return $result;
 }
 
@@ -84,6 +94,21 @@ MogileFS::Client::WithCache -
 =head1 SYNOPSIS
 
   use MogileFS::Client::WithCache;
+  use Cache::Memcached::Fast;
+  my $cache = Cache::Memcached::Fast->new(
+    servers => ['10.0.0.1:11211'],
+    namespace => 'my_namespace',
+  );
+  my $mogilefs = MogileFS::Client::WithCache->new(
+    domain  => 'foo.com::my_namespace',
+    hosts   => ['10.0.0.2:7001', '10.0.0.3:7001'],
+    cache   => $cache,
+  );
+
+  # get with cache
+  my @paths = $mogilefs->get_paths; 
+
+  $mogilefs->store_content(
 
 =head1 DESCRIPTION
 
