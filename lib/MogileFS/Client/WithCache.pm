@@ -113,6 +113,7 @@ MogileFS::Client::WithCache -
   # update and clear cache.
   $mogilefs->store_content('some_key', 'some_class', 'content');
 
+  # get_paths without caching.
   my @paths2 = $mogilefs->get_paths_without_cache('some_key');
 
 =head1 DESCRIPTION
