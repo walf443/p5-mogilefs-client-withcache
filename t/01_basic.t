@@ -58,7 +58,8 @@ sub get {
     $self->{__get_count} ||= {};
     $self->{__get_count}->{$key}++;
     $self->{__last_get_key} = $key;
-    return;
+    $self->{__cache} ||= {};
+    return $self->{__cache}->{$key};
 }
 
 sub get_count {
@@ -76,6 +77,8 @@ sub last_get_key {
 sub set {
     my ($self, $key, $val, $expire) = @_;
     $self->{__last_set} = [ $key, $val, $expire ];
+    $self->{__cache} ||= {};
+    $self->{__cache}->{$key} = $val;
 }
 
 sub last_set {
@@ -84,7 +87,13 @@ sub last_set {
 
 sub delete {
     my ($self, $key) = @_;
-    $self->{__last_delete} = $key;
+    $self->{__cache} ||= {};
+    $self->{__last_delete_key} = $key;
+    delete $self->{__cache}->{$key};
+}
+
+sub last_delete_key {
+    $_[0]->{__last_delete_key};
 }
 
 package main;
@@ -110,21 +119,19 @@ my $code = sub {
 }
 
 # ----------------------------------------------------------
-
-my $cache = Cache::Stub->new;
-my $domain = 'app';
-my $cache_expire = 5 * 60;
-my $mogilefs = MogileFS::Client::WithCache->new(
-    domain => $domain,
-    hosts   => ['10.0.0.2:7001', '10.0.0.3:7001'],
-    cache   => $cache,
-    namespace => 'my_namespace_mogile',
-    cache_expire => $cache_expire,
-);
-
-# ----------------------------------------------------------
 # direct
 {
+    my $cache = Cache::Stub->new;
+    my $domain = 'app';
+    my $cache_expire = 5 * 60;
+    my $mogilefs = MogileFS::Client::WithCache->new(
+        domain => $domain,
+        hosts   => ['10.0.0.2:7001', '10.0.0.3:7001'],
+        cache   => $cache,
+        namespace => 'my_namespace_mogile',
+        cache_expire => $cache_expire,
+    );
+    
     my $key = 'foo';
     
     is($mogilefs->_get_cache_key($key), 'my_namespace_mogile_foo', '_cache_key');
@@ -144,19 +151,44 @@ my $mogilefs = MogileFS::Client::WithCache->new(
         http://localhost/000001.fid
         http://localhost/000002.fid
         http://localhost/000003.fid
-    |], 'get_paths ok')
+    |], 'get_paths_without_cache ok')
         or diag(Dumper(\@paths));
 
     is($cache->get_count('my_namespace_mogile_foo'), 0, 'cache should not be used');
 
     $mogilefs->get_paths($key);
     $mogilefs->get_paths($key);
-    $mogilefs->get_paths($key);
+    # this set should not be affected.
+    $mogilefs->{backend}->set_expect_for_request('get_paths', {
+        domain => $domain,
+        key    => $key,
+    }, {
+            paths => 3,
+            path1 => 'http://localhost/000004.fid',
+            path2 => 'http://localhost/000005.fid',
+            path3 => 'http://localhost/000006.fid',
+    });
+    
+    my @paths2 = $mogilefs->get_paths($key);
+    is_deeply(\@paths2, [qw| 
+        http://localhost/000001.fid
+        http://localhost/000002.fid
+        http://localhost/000003.fid
+    |], 'get_paths ok')
+        or diag(Dumper(\@paths2));
 
     is_deeply($cache->last_set, ['my_namespace_mogile_foo', 'http://localhost/000001.fid http://localhost/000002.fid http://localhost/000003.fid', $cache_expire ], 'cache should be set');
     is($cache->get_count('my_namespace_mogile_foo'), 3, 'cache should be used');
-}
 
+    $cache->delete('my_namespace_mogile_foo');
+    my @paths3 = $mogilefs->get_paths($key);
+    is_deeply(\@paths3, [qw| 
+        http://localhost/000004.fid
+        http://localhost/000005.fid
+        http://localhost/000006.fid
+    |], 'get_paths ok')
+        or diag(Dumper(\@paths3));
+}
 
 done_testing();
 
