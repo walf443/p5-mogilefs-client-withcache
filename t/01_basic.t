@@ -195,8 +195,9 @@ my $code = sub {
 
 }
 
+# ----------------------------------------------------------
+# get_file_data
 {
-    # get_file_data
     my $cache = Cache::Stub->new;
     my $domain = 'app';
     my $cache_expire = 5 * 60;
@@ -225,6 +226,91 @@ my $code = sub {
     my $content = $mogilefs->get_file_data($key);
     is($$content, "this is test\n", 'get_file_data should be success');
     is($cache->get_count('my_namespace_mogile_foo'), 1, 'cache should be used');
+
+}
+
+# ----------------------------------------------------------
+# store_content
+{
+    my $cache = Cache::Stub->new;
+    my $domain = 'app';
+    my $cache_expire = 5 * 60;
+    my $mogilefs = MogileFS::Client::WithCache->new(
+        domain => $domain,
+        hosts   => ['10.0.0.2:7001', '10.0.0.3:7001'],
+        cache   => $cache,
+        namespace => 'my_namespace_mogile',
+        cache_expire => $cache_expire,
+    );
+    
+    my $key = 'foo';
+
+    $mogilefs->{backend}->set_expect_for_request('get_paths', {
+        domain => $domain,
+        key    => $key,
+    }, {
+            paths => 3,
+            path1 => 'http://localhost/000001.fid',
+            path2 => 'http://localhost/000002.fid',
+            path3 => 'http://localhost/000003.fid',
+    });
+    
+    my @paths = $mogilefs->get_paths($key);
+    
+    is_deeply(\@paths, [qw| 
+        http://localhost/000001.fid
+        http://localhost/000002.fid
+        http://localhost/000003.fid
+    |], 'get_paths_without_cache ok')
+        or diag(Dumper(\@paths));
+
+    is_deeply($cache->last_set, ['my_namespace_mogile_foo', 'http://localhost/000001.fid http://localhost/000002.fid http://localhost/000003.fid', $cache_expire ], 'cache should be set');
+    $mogilefs->store_content($key, 'class', "this is file");
+    is($cache->get('my_namespace_mogile_foo'), undef, 'cache should be deleted');
+
+}
+
+# ----------------------------------------------------------
+# store_file
+{
+    my $cache = Cache::Stub->new;
+    my $domain = 'app';
+    my $cache_expire = 5 * 60;
+    my $mogilefs = MogileFS::Client::WithCache->new(
+        domain => $domain,
+        hosts   => ['10.0.0.2:7001', '10.0.0.3:7001'],
+        cache   => $cache,
+        namespace => 'my_namespace_mogile',
+        cache_expire => $cache_expire,
+    );
+    
+    my $key = 'foo';
+
+    $mogilefs->{backend}->set_expect_for_request('get_paths', {
+        domain => $domain,
+        key    => $key,
+    }, {
+            paths => 3,
+            path1 => 'http://localhost/000001.fid',
+            path2 => 'http://localhost/000002.fid',
+            path3 => 'http://localhost/000003.fid',
+    });
+    
+    my @paths = $mogilefs->get_paths($key);
+    
+    is_deeply(\@paths, [qw| 
+        http://localhost/000001.fid
+        http://localhost/000002.fid
+        http://localhost/000003.fid
+    |], 'get_paths_without_cache ok')
+        or diag(Dumper(\@paths));
+
+    is_deeply($cache->last_set, ['my_namespace_mogile_foo', 'http://localhost/000001.fid http://localhost/000002.fid http://localhost/000003.fid', $cache_expire ], 'cache should be set');
+    my ($fh, $tempfile) = File::Temp::tempfile();
+    print $fh "this is test\n";
+    close $fh;
+    $mogilefs->store_file($key, 'class', $tempfile);
+    is($cache->get('my_namespace_mogile_foo'), undef, 'cache should be deleted');
 
 }
 
