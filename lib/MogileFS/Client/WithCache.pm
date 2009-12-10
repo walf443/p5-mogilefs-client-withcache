@@ -103,16 +103,25 @@ MogileFS::Client::WithCache -
     domain  => 'foo.com::my_namespace',
     hosts   => ['10.0.0.2:7001', '10.0.0.3:7001'],
     cache   => $cache,
+    namespace => 'my_namespace_mogile',
+    cache_expire => 5 * 60, # 5 min.
   );
 
   # get with cache
-  my @paths = $mogilefs->get_paths; 
+  my @paths = $mogilefs->get_paths('some_key'); 
 
-  $mogilefs->store_content(
+  # update and clear cache.
+  $mogilefs->store_content('some_key', 'some_class', 'content');
+
+  my @paths2 = $mogilefs->get_paths_without_cache('some_key');
 
 =head1 DESCRIPTION
 
-MogileFS::Client::WithCache is
+MogileFS::Client::WithCache is for caching get_paths's call automatically.
+
+I know memcached backend for MogileFS, but I want to cache by application layer.
+
+Don't cache too long for rebalance or move files. It's limit of application layer caching.
 
 =head1 AUTHOR
 
