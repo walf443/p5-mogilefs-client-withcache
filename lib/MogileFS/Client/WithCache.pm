@@ -49,7 +49,9 @@ sub get_paths {
 
     unless ( defined $result ) {
         $result = join q{ }, $self->get_paths_without_cache($key, $opts);
-        $self->{cache}->set($cache_key => $result, $self->{cache_expire});
+        if ( $result ) {
+            $self->{cache}->set($cache_key => $result, $self->{cache_expire});
+        }
     }
 
     return ( split q{ }, $result );
