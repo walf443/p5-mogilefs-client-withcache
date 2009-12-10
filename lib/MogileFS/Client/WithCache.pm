@@ -6,6 +6,7 @@ use base qw/ MogileFS::Client /;
 use fields (
             'cache',
             'cache_expire',
+            'namespace',
             );
 
 use Carp;
@@ -19,6 +20,7 @@ sub new {
         or croak('MogileFS::Client::WithCache: cache should be required');
     $self->{cache_expire} = $args{cache_expire}
         or croak('MogileFS::Client::WithCache: cache_expire should be required');
+    $self->{namespace} = ( $args{namespace} ||  __PACKAGE__ );
 
     return $self;
 }
@@ -42,11 +44,12 @@ sub store_content {
 sub get_paths {
     my ($self, $key, $opts) = @_;
 
-    my $result = $self->{cache}->get($key);
+    my $cache_key = $self->{namespace} . "_" . $key;
+    my $result = $self->{cache}->get($cache_key);
 
     unless ( defined $result ) {
         $result = join q{ }, $self->get_paths_without_cache($key, $opts);
-        $self->{cache}->set($key => $result, $self->{cache_expire});
+        $self->{cache}->set($cache_key => $result, $self->{cache_expire});
     }
 
     return ( split q{ }, $result );
