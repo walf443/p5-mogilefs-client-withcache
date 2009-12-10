@@ -3,12 +3,17 @@ package MogileFS::Client::WithCache;
 use strict;
 use warnings;
 use base qw/ MogileFS::Client /;
+use fields (
+            'cache',
+            'cache_expire',
+            );
+
 use Carp;
 our $VERSION = '0.01';
 
 sub new {
     my (undef, %args) = @_;
-    my $self = __PACKAGE__::SUPER::new(@_);
+    my $self = __PACKAGE__->SUPER::new(%args);
 
     $self->{cache} = $args{cache}
         or croak('MogileFS::Client::WithCache: cache should be required');
@@ -19,15 +24,17 @@ sub new {
 }
 
 sub store_file {
-    my ($self, $key, $class, $file, $opts ) = @_;
-    my $result = SUPER::store_file(@_);
+    my $self = shift;
+    my ($key, $class, $file, $opts ) = @_;
+    my $result = $self->SUPER::store_file(@_);
     $self->{cache}->delete($key);
     return $result;
 }
 
 sub store_content {
-    my ($self, $key, $class, $file, $opts ) = @_;
-    my $result = SUPER::store_content(@_);
+    my $self = shift;
+    my ($key, $class, $file, $opts ) = @_;
+    my $result = $self->SUPER::store_content(@_);
     $self->{cache}->delete($key);
     return $result;
 }
@@ -36,14 +43,18 @@ sub get_paths {
     my ($self, $key, $opts) = @_;
 
     my $result = $self->{cache}->get($key);
+
     unless ( defined $result ) {
-        $result = $self->get_paths_without_cache($key, $opts);
-        $self->{cache}->set($key);
+        $result = join q{ }, $self->get_paths_without_cache($key, $opts);
+        $self->{cache}->set($key => $result, $self->{cache_expire});
     }
+
+    return ( split q{ }, $result );
 }
 
 sub get_paths_without_cache {
-    SUPER::get_paths(@_);
+    my $self = shift;
+    return ( $self->SUPER::get_paths(@_) );
 }
 
 sub delete {

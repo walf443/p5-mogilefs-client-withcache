@@ -7,6 +7,8 @@ all_from 'lib/MogileFS/Client/WithCache.pm';
 tests 't/*.t';
 author_tests 'xt';
 
+requires 'MogileFS::Client';
+
 build_requires 'Test::More';
 use_test_base;
 auto_include;
