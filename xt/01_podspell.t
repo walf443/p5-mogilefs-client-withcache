@@ -8,3 +8,6 @@ __DATA__
 Keiji Yoshimi
 walf443@gmail.com
 MogileFS::Client::WithCache
+memcached
+rebalance
+backend
