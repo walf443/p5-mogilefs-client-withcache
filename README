@@ -1,27 +1,45 @@
-This is Perl module MogileFS::Client::WithCache.
+NAME
+    MogileFS::Client::WithCache -
 
-INSTALLATION
+SYNOPSIS
+      use MogileFS::Client::WithCache;
+      use Cache::Memcached::Fast;
+      my $cache = Cache::Memcached::Fast->new(
+        servers => ['10.0.0.1:11211'],
+        namespace => 'my_namespace',
+      );
+      my $mogilefs = MogileFS::Client::WithCache->new(
+        domain  => 'foo.com::my_namespace',
+        hosts   => ['10.0.0.2:7001', '10.0.0.3:7001'],
+        cache   => $cache,
+        namespace => 'my_namespace_mogile',
+        cache_expire => 5 * 60, # 5 min.
+      );
 
-MogileFS::Client::WithCache installation is straightforward. If your CPAN shell is set up,
-you should just be able to do
+      # get with cache
+      my @paths = $mogilefs->get_paths('some_key'); 
 
-    % cpan MogileFS::Client::WithCache
+      # update and clear cache.
+      $mogilefs->store_content('some_key', 'some_class', 'content');
 
-Download it, unpack it, then build it as per the usual:
+      # get_paths without caching.
+      my @paths2 = $mogilefs->get_paths_without_cache('some_key');
 
-    % perl Makefile.PL
-    % make && make test
+DESCRIPTION
+    MogileFS::Client::WithCache is for caching get_paths's call
+    automatically.
 
-Then install it:
+    I know memcached backend for MogileFS, but I want to cache by
+    application layer.
 
-    % make install
+    Don't cache too long for rebalance or move files. It's limit of
+    application layer caching.
 
-DOCUMENTATION
+AUTHOR
+    Keiji Yoshimi <walf443@gmail.com>
 
-MogileFS::Client::WithCache documentation is available as in POD. So you can do:
+SEE ALSO
+LICENSE
+    This library is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
 
-    % perldoc MogileFS::Client::WithCache
-
-to read the documentation online with your favorite pager.
-
-Keiji Yoshimi
